@@ -22,7 +22,7 @@ export const NameScrolling: React.FC<NameScrollingProps> = ({
   const [countdown, setCountdown] = useState(15);
   const [currentWinnerIndex, setCurrentWinnerIndex] = useState(0);
   const [selectedWinners, setSelectedWinners] = useState<Guide[]>([]);
-  const [currentWinner, setCurrentWinner] = useState<Guide | null>(null);
+  const [revealedWinners, setRevealedWinners] = useState<Guide[]>([]);
 
   // Get countdown duration based on prize category
   const getCountdownDuration = (category: PrizeCategory | null): number => {
@@ -63,11 +63,12 @@ export const NameScrolling: React.FC<NameScrollingProps> = ({
     }
 
     setSelectedWinners(winners);
+    setRevealedWinners([]);
     setCurrentWinnerIndex(0);
     setPhase('countdown');
     setCountdown(getCountdownDuration(prizeCategory));
 
-    // Start with first winner countdown
+    // Start countdown for first winner
     startCountdownForWinner(0);
   }, [isScrolling, guides, onComplete, winnerCount, prizeCategory]);
 
@@ -85,13 +86,16 @@ export const NameScrolling: React.FC<NameScrollingProps> = ({
       
       if (timeLeft <= 0) {
         clearInterval(countdownInterval);
-        setPhase('revealing');
-        setCurrentWinner(selectedWinners[winnerIndex]);
         
-        // Show winner for 3 seconds, then wait for manual input (or auto-complete if last winner)
+        // Reveal the winner
+        const winner = selectedWinners[winnerIndex];
+        setRevealedWinners(prev => [...prev, winner]);
+        setPhase('revealing');
+        
+        // Show winner for 3 seconds, then decide next action
         setTimeout(() => {
           if (winnerIndex === selectedWinners.length - 1) {
-            // Last winner - auto complete
+            // Last winner - complete the draw
             setPhase('complete');
             setTimeout(() => {
               onComplete(selectedWinners);
@@ -113,6 +117,8 @@ export const NameScrolling: React.FC<NameScrollingProps> = ({
   };
 
   if (!isScrolling) return null;
+
+  const currentWinner = revealedWinners[currentWinnerIndex];
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-purple-900/95 via-pink-900/95 to-blue-900/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -266,7 +272,7 @@ export const NameScrolling: React.FC<NameScrollingProps> = ({
               transition={{ duration: 1, repeat: Infinity }}
               className="text-4xl md:text-5xl font-bold text-white mb-8"
             >
-              {prizeCategory ? `${prizeCategory.icon} ${prizeCategory.name} WINNER #${currentWinnerIndex + 1} ${prizeCategory.icon}` : `🏆 WINNER #${currentWinnerIndex + 1} 🏆`}
+              🎉 CONGRATULATIONS! 🎉
             </motion.h2>
 
             <div className="bg-white/20 backdrop-blur-xl rounded-3xl p-8 md:p-12 border border-white/30 shadow-2xl min-h-[400px] flex items-center justify-center">
@@ -340,7 +346,7 @@ export const NameScrolling: React.FC<NameScrollingProps> = ({
                 <div
                   key={index}
                   className={`w-3 h-3 rounded-full transition-all duration-500 ${
-                    index <= currentWinnerIndex && (phase === 'revealing' || phase === 'waiting' || phase === 'complete')
+                    index < revealedWinners.length
                       ? 'bg-green-400 shadow-lg' 
                       : index === currentWinnerIndex 
                         ? 'bg-yellow-400 shadow-lg animate-pulse' 
@@ -350,7 +356,7 @@ export const NameScrolling: React.FC<NameScrollingProps> = ({
               ))}
             </div>
             <p className="text-white/60 text-sm mt-2">
-              Winner {currentWinnerIndex + 1} of {winnerCount}
+              Winner {revealedWinners.length} of {winnerCount} revealed
             </p>
           </motion.div>
         )}
@@ -368,4 +374,11 @@ export const NameScrolling: React.FC<NameScrollingProps> = ({
       </div>
     </div>
   );
+
+  function handleNextWinner() {
+    const nextIndex = currentWinnerIndex + 1;
+    if (nextIndex < selectedWinners.length) {
+      startCountdownForWinner(nextIndex);
+    }
+  };
 };
